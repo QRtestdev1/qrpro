@@ -82,23 +82,37 @@ function QRDisplay({value, color, size}) {
   size = size || 160;
   useEffect(() => {
     if (!value) return;
-    import('qrcode').then(QRCode => {
-      QRCode.default.toString(value, {
-        type: 'svg',
-        color: { dark: color, light: '#ffffff' },
-        width: size,
-        margin: 1,
-        errorCorrectionLevel: 'H'
-      }).then(svg => setSvgData(svg))
-        .catch(err => console.error('QR error:', err));
-    });
+    let cancelled = false;
+    const generate = async () => {
+      try {
+        const QRCode = (await import('qrcode')).default;
+        const svg = await QRCode.toString(value, {
+          type: 'svg',
+          color: { dark: color, light: '#ffffff' },
+          width: size,
+          margin: 1,
+          errorCorrectionLevel: 'H'
+        });
+        if (!cancelled) setSvgData(svg);
+      } catch(e) {
+        console.error('QR generation error:', e);
+      }
+    };
+    generate();
+    return () => { cancelled = true; };
   }, [value, color, size]);
-  return <div style={{lineHeight:0}} dangerouslySetInnerHTML={{__html: svgData}}/>;
+
+  if (!svgData) return (
+    <div style={{width:size,height:size,background:"#F3F4F6",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <span style={{fontSize:11,color:"#9CA3AF"}}>Generating...</span>
+    </div>
+  );
+  return <div style={{lineHeight:0}} dangerouslySetInnerHTML={{__html:svgData}}/>;
 }
 
 async function buildQRSvg(value, color, size) {
-  const QRCode = await import('qrcode');
-  return QRCode.default.toString(value, {
+  const QRCode = (await import('qrcode')).default;
+  return QRCode.toString(value, {
     type: 'svg',
     color: { dark: color || '#111827', light: '#ffffff' },
     width: size || 512,
